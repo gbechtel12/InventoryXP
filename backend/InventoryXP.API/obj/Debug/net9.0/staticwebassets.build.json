@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "dqipbX4D+QVsLJVla80PmAoefYuLSDNDz02SUxMbil0=",
+  "Source": "InventoryXP.API",
+  "BasePath": "_content/InventoryXP.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}
