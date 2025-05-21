@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>InventoryXP</title>
+  <script>
+    // Single Page Apps for GitHub Pages or any static host
+    // This script takes the current URL and converts the path and query
+    // string into just a query string, and then redirects to the root path
+    // with that query string where the router can handle routing based on query.
+    // https://github.com/rafgraph/spa-github-pages
+    const segment = 1
+    const l = window.location
+    const origin = l.origin || (l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : ''))
+    const basePath = l.pathname.split('/').slice(0, 1 + segment).join('/')
+    const url = origin + basePath + '?p=' + 
+      encodeURIComponent(l.pathname.slice(basePath.length) + l.search)
+    sessionStorage.redirectUrl = url
+    window.location.href = origin + basePath
+  </script>
+</head>
+<body>
+  <h1>Redirecting...</h1>
+  <p>If you are not automatically redirected, <a href="/">click here</a>.</p>
+</body>
+</html> 

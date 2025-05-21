@@ -5,6 +5,19 @@
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InventoryXP - Inventory Management System</title>
+    <script>
+      // Redirect handler for SPA deployment
+      (function() {
+        if (sessionStorage.redirectUrl) {
+          const redirectUrl = sessionStorage.redirectUrl;
+          delete sessionStorage.redirectUrl;
+          const redirectParam = (new URL(redirectUrl)).searchParams.get('p');
+          if (redirectParam) {
+            history.replaceState(null, null, redirectParam);
+          }
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
