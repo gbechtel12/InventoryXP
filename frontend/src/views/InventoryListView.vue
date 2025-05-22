@@ -1,22 +1,30 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useInventoryStore } from '../stores/inventory'
+import { useAuth } from '../composables/useAuth'
+import { addInventoryItem, deleteInventoryItem, calculateRoi } from '../services/inventoryService'
 import MainLayout from '../layouts/MainLayout.vue'
 import ItemCard from '../components/ItemCard.vue'
 
 const inventoryStore = useInventoryStore()
+const { currentUser } = useAuth()
 const loading = ref(true)
 const searchQuery = ref('')
 const showAddModal = ref(false)
+const formError = ref('')
+const isSaving = ref(false)
+const isDeleting = ref(false)
+const deleteError = ref('')
 
 const newItem = ref({
   title: '',
   description: '',
   cost: 0,
-  listingPrice: 0,
-  mainLocation: '',
+  listPrice: 0,
+  location: '',
   subLocation: '',
-  listingPlatformID: null
+  subSubLocation: '',
+  listedOn: ''
 })
 
 onMounted(async () => {
@@ -40,18 +48,57 @@ const filteredItems = computed(() => {
   return inventoryStore.inventoryItems.filter(item => 
     item.title.toLowerCase().includes(query) || 
     (item.description && item.description.toLowerCase().includes(query)) ||
-    item.mainLocation.toLowerCase().includes(query) ||
+    (item.location && item.location.toLowerCase().includes(query)) ||
     (item.subLocation && item.subLocation.toLowerCase().includes(query))
   )
 })
 
 async function handleAddItem() {
+  formError.value = ''
+  
+  // Form validation
+  if (!newItem.value.title.trim()) {
+    formError.value = 'Title is required'
+    return
+  }
+  
+  if (newItem.value.cost < 0 || newItem.value.listPrice < 0) {
+    formError.value = 'Cost and listing price must be non-negative'
+    return
+  }
+  
+  if (!currentUser.value) {
+    formError.value = 'You must be logged in to add inventory items'
+    return
+  }
+  
   try {
-    await inventoryStore.createItem(newItem.value)
+    isSaving.value = true
+    
+    // Prepare the item data
+    const itemData = {
+      ...newItem.value,
+      // Ensure numeric fields are properly typed
+      cost: Number(newItem.value.cost),
+      listPrice: Number(newItem.value.listPrice),
+      // Calculate ROI
+      roi: calculateRoi(Number(newItem.value.cost), Number(newItem.value.listPrice))
+    }
+    
+    // Add to Firestore
+    await addInventoryItem(itemData, currentUser.value.uid)
+    
+    // Reset form and close modal
     resetForm()
     showAddModal.value = false
+    
+    // Refresh the inventory list
+    await inventoryStore.fetchInventoryItems()
   } catch (error) {
     console.error('Failed to create item:', error)
+    formError.value = error.message || 'Failed to create item. Please try again.'
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -60,20 +107,41 @@ function resetForm() {
     title: '',
     description: '',
     cost: 0,
-    listingPrice: 0,
-    mainLocation: '',
+    listPrice: 0,
+    location: '',
     subLocation: '',
-    listingPlatformID: null
+    subSubLocation: '',
+    listedOn: ''
   }
+  formError.value = ''
 }
 
 async function deleteItem(id) {
-  if (confirm('Are you sure you want to delete this item?')) {
-    try {
-      await inventoryStore.deleteItem(id)
-    } catch (error) {
-      console.error('Failed to delete item:', error)
+  if (!confirm('Are you sure you want to delete this item?')) {
+    return
+  }
+  
+  isDeleting.value = true
+  deleteError.value = ''
+  
+  try {
+    if (!currentUser.value) {
+      deleteError.value = 'You must be logged in to delete inventory items'
+      return
     }
+    
+    // Delete from Firestore
+    await deleteInventoryItem(id)
+    
+    // Refresh the inventory list
+    await inventoryStore.fetchInventoryItems()
+  } catch (error) {
+    console.error('Failed to delete item:', error)
+    deleteError.value = error.message || 'Failed to delete item. Please try again.'
+    // Show error message to user
+    alert(`Error deleting item: ${deleteError.value}`)
+  } finally {
+    isDeleting.value = false
   }
 }
 </script>
@@ -129,9 +197,14 @@ async function deleteItem(id) {
         >
           <template #actions>
             <button 
-              @click="deleteItem(item.itemID)"
-              class="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              @click="deleteItem(item.id || item.itemID)"
+              :disabled="isDeleting"
+              class="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              <svg v-if="isDeleting" class="animate-spin -ml-0.5 mr-1 h-3 w-3 text-red-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
               Delete
             </button>
           </template>
@@ -149,7 +222,22 @@ async function deleteItem(id) {
             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Inventory Item</h3>
               
+              <!-- Form Error Message -->
+              <div v-if="formError" class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div class="ml-3">
+                    <p class="text-sm text-red-700">{{ formError }}</p>
+                  </div>
+                </div>
+              </div>
+              
               <form @submit.prevent="handleAddItem" class="space-y-4">
+                <!-- Title Field -->
                 <div>
                   <label for="title" class="block text-sm font-medium text-gray-700">Title</label>
                   <input 
@@ -161,6 +249,7 @@ async function deleteItem(id) {
                   />
                 </div>
                 
+                <!-- Description Field -->
                 <div>
                   <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
                   <textarea 
@@ -171,6 +260,7 @@ async function deleteItem(id) {
                   ></textarea>
                 </div>
                 
+                <!-- Cost and Listing Price Fields -->
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label for="cost" class="block text-sm font-medium text-gray-700">Cost ($)</label>
@@ -186,10 +276,10 @@ async function deleteItem(id) {
                   </div>
                   
                   <div>
-                    <label for="listingPrice" class="block text-sm font-medium text-gray-700">Listing Price ($)</label>
+                    <label for="listPrice" class="block text-sm font-medium text-gray-700">Listing Price ($)</label>
                     <input 
-                      id="listingPrice" 
-                      v-model.number="newItem.listingPrice" 
+                      id="listPrice" 
+                      v-model.number="newItem.listPrice" 
                       type="number" 
                       min="0" 
                       step="0.01" 
@@ -199,12 +289,21 @@ async function deleteItem(id) {
                   </div>
                 </div>
                 
+                <!-- ROI Display -->
+                <div v-if="newItem.cost > 0" class="text-sm bg-gray-50 p-2 rounded">
+                  <span class="font-medium">Calculated ROI:</span> 
+                  <span :class="newItem.cost > 0 ? 'text-green-600 font-medium' : ''">
+                    {{ calculateRoi(newItem.cost, newItem.listPrice) }}%
+                  </span>
+                </div>
+                
+                <!-- Location Fields -->
                 <div class="grid grid-cols-2 gap-4">
                   <div>
-                    <label for="mainLocation" class="block text-sm font-medium text-gray-700">Main Location</label>
+                    <label for="location" class="block text-sm font-medium text-gray-700">Location</label>
                     <input 
-                      id="mainLocation" 
-                      v-model="newItem.mainLocation" 
+                      id="location" 
+                      v-model="newItem.location" 
                       type="text" 
                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     />
@@ -221,22 +320,28 @@ async function deleteItem(id) {
                   </div>
                 </div>
                 
-                <div>
-                  <label for="listingPlatform" class="block text-sm font-medium text-gray-700">Listing Platform</label>
-                  <select 
-                    id="listingPlatform" 
-                    v-model="newItem.listingPlatformID" 
-                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option :value="null">None</option>
-                    <option 
-                      v-for="platform in inventoryStore.listingPlatforms" 
-                      :key="platform.platformID" 
-                      :value="platform.platformID"
-                    >
-                      {{ platform.name }}
-                    </option>
-                  </select>
+                <!-- Additional Location & Platform -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label for="subSubLocation" class="block text-sm font-medium text-gray-700">Sub-Sub Location</label>
+                    <input 
+                      id="subSubLocation" 
+                      v-model="newItem.subSubLocation" 
+                      type="text" 
+                      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label for="listedOn" class="block text-sm font-medium text-gray-700">Listed On</label>
+                    <input 
+                      id="listedOn" 
+                      v-model="newItem.listedOn" 
+                      type="text" 
+                      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="e.g. eBay, Etsy"
+                    />
+                  </div>
                 </div>
               </form>
             </div>
@@ -245,14 +350,20 @@ async function deleteItem(id) {
               <button 
                 type="button" 
                 @click="handleAddItem"
-                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
+                :disabled="isSaving"
+                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add Item
+                <svg v-if="isSaving" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {{ isSaving ? 'Saving...' : 'Add Item' }}
               </button>
               <button 
                 type="button" 
                 @click="showAddModal = false"
-                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                :disabled="isSaving"
+                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>

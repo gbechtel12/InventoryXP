@@ -33,8 +33,8 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-gray-50">
-    <div class="flex flex-1 flex-col justify-center py-12 px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
+  <div class="flex h-screen w-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800">
+    <div class="flex flex-1 flex-col justify-center py-12 px-4 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-white lg:max-w-2xl">
       <div class="mx-auto w-full max-w-sm lg:w-96">
         <div>
           <h2 class="mt-6 text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
@@ -130,8 +130,8 @@ async function handleLogin() {
     </div>
     
     <!-- Enhanced right panel with animated background and illustrations -->
-    <div class="hidden lg:block relative w-0 flex-1 overflow-hidden">
-      <div class="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800">
+    <div class="hidden lg:block relative flex-1 overflow-hidden">
+      <div class="absolute inset-0">
         <!-- Animated circles in background -->
         <div class="absolute top-0 left-0 w-full h-full overflow-hidden">
           <div class="absolute w-96 h-96 rounded-full bg-indigo-400 opacity-20 -top-10 -right-16 animate-blob"></div>
@@ -141,8 +141,9 @@ async function handleLogin() {
         
         <!-- Inventory-themed illustrations -->
         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-          <div class="text-6xl font-extrabold text-white tracking-tight">
+          <div class="text-6xl font-extrabold text-white tracking-tight text-center">
             <span class="block">InventoryXP</span>
+            <span class="block text-2xl mt-2 font-normal">powered by Cold Gumbo</span>
           </div>
           <div class="mt-4 text-xl text-indigo-100 max-w-md text-center">
             Organize, track, and optimize your inventory with ease
@@ -191,6 +192,12 @@ async function handleLogin() {
 </template>
 
 <style scoped>
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 @keyframes blob {
   0% {
     transform: translate(0px, 0px) scale(1);

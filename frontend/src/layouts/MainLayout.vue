@@ -1,10 +1,10 @@
 <script setup>
-import Navbar from '../components/Navbar.vue'
+// Navbar is already included in App.vue, so we don't need it here
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-100">
-    <Navbar />
+    <!-- Removed duplicate Navbar -->
     
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <slot></slot>

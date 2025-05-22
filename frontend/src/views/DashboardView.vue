@@ -23,7 +23,7 @@ async function loadData() {
   
   try {
     await Promise.all([
-      userStore.loadUser(),
+      userStore.loadUserProfile(),
       inventoryStore.fetchInventoryItems()
     ])
     

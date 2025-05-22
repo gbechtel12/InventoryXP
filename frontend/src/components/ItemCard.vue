@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { calculateRoi } from '../services/inventoryService'
 
 const props = defineProps({
   item: {
@@ -10,7 +11,7 @@ const props = defineProps({
 
 const roi = computed(() => {
   if (props.item.cost <= 0) return 0
-  return ((props.item.listingPrice - props.item.cost) / props.item.cost * 100).toFixed(2)
+  return calculateRoi(props.item.cost, props.item.listPrice)
 })
 
 const roiClass = computed(() => {
@@ -45,24 +46,24 @@ const roiClass = computed(() => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <span>{{ item.mainLocation }}{{ item.subLocation ? ' / ' + item.subLocation : '' }}</span>
+            <span>{{ item.location }}{{ item.subLocation ? ' / ' + item.subLocation : '' }}</span>
           </div>
-          <div v-if="item.listingPlatform" class="flex items-center mt-1">
+          <div v-if="item.listedOn" class="flex items-center mt-1">
             <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                 d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
             </svg>
-            <span>{{ item.listingPlatform.name }}</span>
+            <span>{{ item.listedOn }}</span>
           </div>
         </div>
         <div class="text-right">
-          <div class="text-lg font-medium text-gray-900">${{ item.listingPrice.toFixed(2) }}</div>
+          <div class="text-lg font-medium text-gray-900">${{ item.listPrice.toFixed(2) }}</div>
           <div class="text-sm text-gray-500">Cost: ${{ item.cost.toFixed(2) }}</div>
         </div>
       </div>
       
       <div class="mt-4 flex justify-end space-x-2">
-        <router-link :to="`/inventory/${item.itemID}`" 
+        <router-link :to="`/inventory/${item.id || item.itemID}`" 
           class="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
           View
         </router-link>

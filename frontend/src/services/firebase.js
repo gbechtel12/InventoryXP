@@ -1,6 +1,12 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { 
+  getAuth as firebaseGetAuth, 
+  createUserWithEmailAndPassword as firebaseCreateUser, 
+  signInWithEmailAndPassword as firebaseSignIn, 
+  signOut as firebaseSignOut, 
+  onAuthStateChanged as firebaseOnAuthStateChanged 
+} from "firebase/auth";
 
 // Development flag - if true, use mock Firebase when credentials are missing
 const USE_MOCK_FIREBASE = true;
@@ -26,6 +32,22 @@ const mockAuth = {
   
   async signInWithEmailAndPassword(email, password) {
     console.log('MOCK: Sign in with', email);
+    
+    // In development, accept any credentials
+    if (import.meta.env.DEV) {
+      this.currentUser = {
+        uid: 'mock-uid-' + Date.now(),
+        email: email || 'test@example.com',
+        displayName: (email || 'test@example.com').split('@')[0],
+        getIdToken: () => Promise.resolve('mock-token-' + Date.now())
+      };
+      this.mockUserData = { email, password };
+      this.triggerAuthStateChange();
+      
+      return { user: this.currentUser };
+    }
+    
+    // In production mode, we'd do actual validation here
     this.currentUser = {
       uid: 'mock-uid-' + Date.now(),
       email,
@@ -96,9 +118,22 @@ const useMockAuth = USE_MOCK_FIREBASE && !hasFirebaseCredentials;
 let auth;
 let app;
 
+// Create wrapper functions that handle both real and mock auth
+let createUserWithEmailAndPassword;
+let signInWithEmailAndPassword;
+let signOut;
+let onAuthStateChanged;
+
 if (useMockAuth) {
   console.log('Using mock Firebase authentication for development');
   auth = mockAuth;
+  
+  // Use mock functions directly
+  createUserWithEmailAndPassword = (_, email, password) => mockAuth.createUserWithEmailAndPassword(email, password);
+  signInWithEmailAndPassword = (_, email, password) => mockAuth.signInWithEmailAndPassword(email, password);
+  signOut = () => mockAuth.signOut();
+  onAuthStateChanged = (_, callback) => mockAuth.onAuthStateChanged(callback);
+  
 } else {
   try {
     // Your web app's Firebase configuration
@@ -113,11 +148,24 @@ if (useMockAuth) {
 
     // Initialize Firebase
     app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
+    auth = firebaseGetAuth(app);
     console.log('Using real Firebase authentication');
+    
+    // Use real Firebase functions
+    createUserWithEmailAndPassword = firebaseCreateUser;
+    signInWithEmailAndPassword = firebaseSignIn;
+    signOut = firebaseSignOut;
+    onAuthStateChanged = firebaseOnAuthStateChanged;
+    
   } catch (error) {
     console.error('Firebase initialization error. Falling back to mock auth:', error);
     auth = mockAuth;
+    
+    // Fall back to mock functions
+    createUserWithEmailAndPassword = (_, email, password) => mockAuth.createUserWithEmailAndPassword(email, password);
+    signInWithEmailAndPassword = (_, email, password) => mockAuth.signInWithEmailAndPassword(email, password);
+    signOut = () => mockAuth.signOut();
+    onAuthStateChanged = (_, callback) => mockAuth.onAuthStateChanged(callback);
   }
 }
 

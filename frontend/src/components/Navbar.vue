@@ -62,6 +62,13 @@ onMounted(() => {
         <!-- User menu and logout for desktop -->
         <div class="hidden md:flex md:items-center">
           <div v-if="isAuthenticated" class="flex items-center">
+            <router-link 
+              to="/settings" 
+              class="text-white hover:text-indigo-100 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out mr-2"
+              active-class="bg-indigo-700 text-white"
+            >
+              Settings
+            </router-link>
             <div class="text-white mr-4 flex items-center">
               <span class="h-8 w-8 rounded-full bg-indigo-400 flex items-center justify-center mr-2">
                 {{ userName.charAt(0).toUpperCase() }}
@@ -151,6 +158,14 @@ onMounted(() => {
             active-class="bg-indigo-800 text-white"
           >
             Inventory
+          </router-link>
+          
+          <router-link 
+            to="/settings" 
+            class="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-indigo-600"
+            active-class="bg-indigo-800 text-white"
+          >
+            Settings
           </router-link>
         </template>
       </div>
