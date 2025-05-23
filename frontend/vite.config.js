@@ -6,7 +6,7 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig(({ command }) => {
   const config = {
     plugins: [vue()],
-    base: command === 'build' ? '/inventoryxp/' : '/',
+    base: '/',
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))
