@@ -2,10 +2,25 @@
   publish = "dist"
   command = "npm run build"
 
+# Ensure .js files are served with the correct MIME type
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+# Ensure ESM modules get correct MIME type
+[[headers]]
+  for = "*.mjs"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+# SPA redirect but exclude assets
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  # Don't redirect actual files like .js and other assets
+  conditions = {Path = {not = ["/*.js", "/*.css", "/*.ico", "/*.jpg", "/*.png", "/*.svg", "/assets/**"]}}
 
 [build.environment]
   NODE_VERSION = "18" 
