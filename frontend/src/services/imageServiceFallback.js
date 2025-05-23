@@ -1,4 +1,4 @@
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
 import { firestore } from '../firebase/initFirebase';
 
 /**
@@ -123,14 +123,14 @@ export const uploadItemImageFallback = async (file, itemId, userId) => {
           };
           
           // Update the item document in Firestore with just this image
-          const itemDocRef = doc(firestore, 'inventory', itemId);
+          const itemDocRef = firestore.collection('inventory').doc(itemId);
           
           // Instead of using arrayUnion which might cause nested array issues,
           // Get current images array, append the new image, and update
-          const docSnap = await getDoc(itemDocRef);
+          const docSnap = await itemDocRef.get();
           let currentImages = [];
           
-          if (docSnap.exists()) {
+          if (docSnap.exists) {
             const data = docSnap.data();
             if (data.images && Array.isArray(data.images)) {
               currentImages = [...data.images];
@@ -139,7 +139,7 @@ export const uploadItemImageFallback = async (file, itemId, userId) => {
           
           currentImages.push(imageData);
           
-          await updateDoc(itemDocRef, {
+          await itemDocRef.update({
             images: currentImages
           });
           
@@ -167,11 +167,11 @@ export const uploadItemImageFallback = async (file, itemId, userId) => {
 export const removeItemImageFallback = async (imageData, itemId) => {
   try {
     // For fallback images, we just remove from Firestore - no Storage deletion needed
-    const itemDocRef = doc(firestore, 'inventory', itemId);
+    const itemDocRef = firestore.collection('inventory').doc(itemId);
     
     // Get the current images array
-    const docSnap = await getDoc(itemDocRef);
-    if (!docSnap.exists()) {
+    const docSnap = await itemDocRef.get();
+    if (!docSnap.exists) {
       throw new Error('Item document not found');
     }
     
@@ -184,7 +184,7 @@ export const removeItemImageFallback = async (imageData, itemId) => {
     );
     
     // Update document with new array
-    await updateDoc(itemDocRef, {
+    await itemDocRef.update({
       images: updatedImages
     });
     
@@ -197,8 +197,8 @@ export const removeItemImageFallback = async (imageData, itemId) => {
 
 export const setPrimaryImageFallback = async (itemId, imageData) => {
   try {
-    const itemDocRef = doc(firestore, 'inventory', itemId);
-    await updateDoc(itemDocRef, {
+    const itemDocRef = firestore.collection('inventory').doc(itemId);
+    await itemDocRef.update({
       primaryImage: imageData
     });
     

@@ -3,8 +3,7 @@
  */
 
 import { useUserStore } from '../stores/user';
-import { getAuth, signOut } from 'firebase/auth';
-import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
 import { firestore } from '../firebase/initFirebase';
 
 /**
@@ -71,8 +70,8 @@ export async function testRegistrationAndLogin() {
     }
 
     // Step 6: Verify Firestore data
-    const userDoc = await getDoc(doc(firestore, 'users', loginData.uid));
-    if (userDoc.exists()) {
+    const userDoc = await firestore.collection('users').doc(loginData.uid).get();
+    if (userDoc.exists) {
       testResults.steps.push('Firestore user document exists');
       testResults.userData = userDoc.data();
     } else {

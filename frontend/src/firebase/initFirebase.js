@@ -1,8 +1,8 @@
-// Import Firebase modules
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+// Import Firebase modules (v8 syntax)
+import firebase from 'firebase/app';
+import 'firebase/auth';
+import 'firebase/firestore';
+import 'firebase/storage';
 
 // Firebase configuration object using environment variables
 const firebaseConfig = {
@@ -16,12 +16,12 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 
 // Initialize Firebase services
-const auth = getAuth(app);
-const firestore = getFirestore(app);
-const storage = getStorage(app);
+const auth = firebase.auth();
+const firestore = firebase.firestore();
+const storage = firebase.storage();
 
 // Log initialization status in development mode
 if (import.meta.env.DEV) {

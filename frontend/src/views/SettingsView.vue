@@ -2,7 +2,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '../stores/user'
 import { useAuth } from '../composables/useAuth'
-import { doc, getDoc } from 'firebase/firestore'
 import { firestore } from '../firebase/initFirebase'
 import MainLayout from '../layouts/MainLayout.vue'
 import UserInfoDisplay from '../components/UserInfoDisplay.vue'
@@ -47,10 +46,10 @@ onMounted(async () => {
     
     // Fetch additional user metadata from Firestore
     if (currentUser.value?.uid) {
-      const userDocRef = doc(firestore, 'users', currentUser.value.uid)
-      const userDoc = await getDoc(userDocRef)
+      const userDocRef = firestore.collection('users').doc(currentUser.value.uid)
+      const userDoc = await userDocRef.get()
       
-      if (userDoc.exists()) {
+      if (userDoc.exists) {
         const data = userDoc.data()
         userMetadata.value = {
           createdAt: data.createdAt || currentUser.value.metadata?.creationTime,

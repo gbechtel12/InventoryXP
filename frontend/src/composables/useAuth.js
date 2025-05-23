@@ -1,17 +1,5 @@
 import { ref, computed, watchEffect } from 'vue';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  serverTimestamp 
-} from 'firebase/firestore';
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
 import { auth, firestore } from '../firebase/initFirebase';
 
 // Singleton pattern to share the auth state across components
@@ -43,7 +31,7 @@ if (MOCK_MODE) {
   isLoading.value = false;
 } else {
   // Watch for auth state changes with Firebase
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+  const unsubscribe = auth.onAuthStateChanged(async (user) => {
     isLoading.value = true;
     error.value = null;
     
@@ -52,10 +40,10 @@ if (MOCK_MODE) {
         currentUser.value = user;
         
         // Get additional user data from Firestore
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
+        const userDocRef = firestore.collection('users').doc(user.uid);
+        const userDoc = await userDocRef.get();
         
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
           userMetadata.value = userDoc.data();
         }
       } else {

@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
 import { auth, firestore } from '../firebase/initFirebase'
 
 // Temporarily enable mock auth to allow login while fixing Firebase configuration
@@ -38,7 +37,7 @@ export const useUserStore = defineStore('user', () => {
 
   // Initialize auth state from Firebase on store creation
   if (!MOCK_AUTH) {
-    onAuthStateChanged(auth, (firebaseUser) => {
+    auth.onAuthStateChanged((firebaseUser) => {
       if (firebaseUser) {
         user.value = firebaseUser
         // Get the ID token for API requests
@@ -87,10 +86,10 @@ export const useUserStore = defineStore('user', () => {
       
       // Otherwise try to get user data from Firestore
       if (user.value?.uid) {
-        const userDocRef = doc(firestore, 'users', user.value.uid)
-        const userDoc = await getDoc(userDocRef)
+        const userDocRef = firestore.collection('users').doc(user.value.uid)
+        const userDoc = await userDocRef.get()
         
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
           const userData = userDoc.data()
           // Merge Firestore data with auth user data
           if (user.value) {
@@ -141,7 +140,7 @@ export const useUserStore = defineStore('user', () => {
         return user.value
       }
       
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await auth.signInWithEmailAndPassword(email, password)
       user.value = userCredential.user
       
       // Get token for API requests
@@ -199,7 +198,7 @@ export const useUserStore = defineStore('user', () => {
       }
       
       // Create new user with Firebase
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password)
       user.value = userCredential.user
       
       // Update profile with username/displayName
@@ -214,8 +213,8 @@ export const useUserStore = defineStore('user', () => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${idToken}`
       
       // Save additional user data to Firestore
-      const userDocRef = doc(firestore, 'users', userCredential.user.uid)
-      await setDoc(userDocRef, {
+      const userDocRef = firestore.collection('users').doc(userCredential.user.uid)
+      await userDocRef.set({
         uid: userCredential.user.uid,
         email: email,
         displayName: username || email.split('@')[0],
@@ -238,7 +237,7 @@ export const useUserStore = defineStore('user', () => {
 
   async function logout() {
     try {
-      await signOut(auth)
+      await auth.signOut()
       user.value = null
       token.value = null
       localStorage.removeItem('token')
@@ -263,8 +262,8 @@ export const useUserStore = defineStore('user', () => {
       await auth.currentUser.updateProfile(userData)
       
       // Also update Firestore user document
-      const userDocRef = doc(firestore, 'users', auth.currentUser.uid)
-      await updateDoc(userDocRef, {
+      const userDocRef = firestore.collection('users').doc(auth.currentUser.uid)
+      await userDocRef.update({
         ...userData,
         updatedAt: new Date().toISOString()
       })

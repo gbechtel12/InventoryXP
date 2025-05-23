@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore'
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
 import { firestore } from '../firebase/initFirebase'
 
 // Development flag to bypass API calls when backend is not available
@@ -35,8 +35,8 @@ export const useInventoryStore = defineStore('inventory', {
       
       try {
         // Get items from Firestore
-        const inventoryCollectionRef = collection(firestore, 'inventory')
-        const querySnapshot = await getDocs(inventoryCollectionRef)
+        const inventoryCollectionRef = firestore.collection('inventory')
+        const querySnapshot = await inventoryCollectionRef.get()
         
         const items = []
         querySnapshot.forEach((doc) => {
@@ -72,10 +72,10 @@ export const useInventoryStore = defineStore('inventory', {
         }
         
         // Otherwise fetch from Firestore
-        const docRef = doc(firestore, 'inventory', id)
-        const docSnap = await getDoc(docRef)
+        const docRef = firestore.collection('inventory').doc(id)
+        const docSnap = await docRef.get()
         
-        if (docSnap.exists()) {
+        if (docSnap.exists) {
           this.currentItem = {
             id: docSnap.id,
             ...docSnap.data()
@@ -100,8 +100,8 @@ export const useInventoryStore = defineStore('inventory', {
       
       try {
         // Add to Firestore
-        const inventoryCollectionRef = collection(firestore, 'inventory')
-        const docRef = await addDoc(inventoryCollectionRef, {
+        const inventoryCollectionRef = firestore.collection('inventory')
+        const docRef = await inventoryCollectionRef.add({
           ...itemData,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -135,8 +135,8 @@ export const useInventoryStore = defineStore('inventory', {
       
       try {
         // Update in Firestore
-        const docRef = doc(firestore, 'inventory', id)
-        await updateDoc(docRef, {
+        const docRef = firestore.collection('inventory').doc(id)
+        await docRef.update({
           ...itemData,
           updatedAt: new Date().toISOString()
         })
@@ -177,8 +177,8 @@ export const useInventoryStore = defineStore('inventory', {
       
       try {
         // Delete from Firestore
-        const docRef = doc(firestore, 'inventory', id)
-        await deleteDoc(docRef)
+        const docRef = firestore.collection('inventory').doc(id)
+        await docRef.delete()
         
         // Remove from local data
         this.inventoryItems = this.inventoryItems.filter(item => 

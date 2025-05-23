@@ -1,18 +1,9 @@
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  getDocs,
-  doc,
-  serverTimestamp
-} from 'firebase/firestore';
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
+import firebase from 'firebase/app';
 import { firestore } from '../firebase/initFirebase';
 
 // Collection reference
-const inventoryCollection = collection(firestore, 'inventory');
+const inventoryCollection = firestore.collection('inventory');
 
 /**
  * Retrieves all inventory items for a specific user
@@ -22,8 +13,8 @@ const inventoryCollection = collection(firestore, 'inventory');
 export const getInventoryItems = async (userId) => {
   try {
     // Create a query against the collection for the specific user
-    const q = query(inventoryCollection, where('createdBy', '==', userId));
-    const querySnapshot = await getDocs(q);
+    const q = inventoryCollection.where('createdBy', '==', userId);
+    const querySnapshot = await q.get();
     
     // Map the documents to an array of objects including the document ID
     const items = querySnapshot.docs.map(doc => ({
@@ -50,8 +41,8 @@ export const addInventoryItem = async (item, userId) => {
     const itemWithMeta = {
       ...item,
       createdBy: userId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
     // Ensure all required fields exist
@@ -73,7 +64,7 @@ export const addInventoryItem = async (item, userId) => {
       updatedAt: itemWithMeta.updatedAt
     };
     
-    const docRef = await addDoc(inventoryCollection, standardizedItem);
+    const docRef = await inventoryCollection.add(standardizedItem);
     
     return {
       id: docRef.id,
@@ -96,14 +87,14 @@ export const updateInventoryItem = async (docId, newData) => {
     // Add updated timestamp
     const dataWithTimestamp = {
       ...newData,
-      updatedAt: serverTimestamp()
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
     // Get reference to the document
-    const docRef = doc(firestore, 'inventory', docId);
+    const docRef = firestore.collection('inventory').doc(docId);
     
     // Update the document
-    await updateDoc(docRef, dataWithTimestamp);
+    await docRef.update(dataWithTimestamp);
     
     return {
       id: docId,
@@ -123,10 +114,10 @@ export const updateInventoryItem = async (docId, newData) => {
 export const deleteInventoryItem = async (docId) => {
   try {
     // Get reference to the document
-    const docRef = doc(firestore, 'inventory', docId);
+    const docRef = firestore.collection('inventory').doc(docId);
     
     // Delete the document
-    await deleteDoc(docRef);
+    await docRef.delete();
     
     return { id: docId };
   } catch (error) {

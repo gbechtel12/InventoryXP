@@ -2,8 +2,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { firestore } from '../firebase/initFirebase'
+import firebase from 'firebase/app'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -48,8 +48,8 @@ async function handleRegister() {
     if (userData && userData.uid) {
       // Update last login timestamp in Firestore
       try {
-        await setDoc(doc(firestore, 'users', userData.uid), {
-          lastLogin: serverTimestamp(),
+        await firestore.collection('users').doc(userData.uid).set({
+          lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
           registrationComplete: true
         }, { merge: true })
       } catch (firestoreErr) {

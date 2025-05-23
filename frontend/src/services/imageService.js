@@ -1,7 +1,6 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '../firebase/initFirebase';
-import { updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { firestore } from '../firebase/initFirebase';
+// Firebase v8 doesn't use these named imports - functionality is available on the service instances
+import firebase from 'firebase/app';
+import { storage, firestore } from '../firebase/initFirebase';
 import { 
   uploadItemImageFallback, 
   removeItemImageFallback, 
@@ -23,15 +22,15 @@ export const uploadItemImage = async (file, itemId, userId) => {
     const fileName = `${timestamp}_${file.name}`;
     
     // Create a storage reference for this specific file
-    const storageRef = ref(storage, `inventory/${userId}/${itemId}/${fileName}`);
+    const storageRef = storage.ref(`inventory/${userId}/${itemId}/${fileName}`);
     
     // Try direct upload to Firebase Storage
     try {
       // Upload the file
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await storageRef.put(file);
       
       // Get the download URL
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      const downloadURL = await snapshot.ref.getDownloadURL();
       
       // Create image metadata object
       const imageData = {
@@ -44,9 +43,9 @@ export const uploadItemImage = async (file, itemId, userId) => {
       };
       
       // Update the item document in Firestore to add this image URL to the images array
-      const itemDocRef = doc(firestore, 'inventory', itemId);
-      await updateDoc(itemDocRef, {
-        images: arrayUnion(imageData)
+      const itemDocRef = firestore.collection('inventory').doc(itemId);
+      await itemDocRef.update({
+        images: firebase.firestore.FieldValue.arrayUnion(imageData)
       });
       
       return imageData;
@@ -77,24 +76,24 @@ export const removeItemImage = async (imageData, itemId) => {
     // Regular Firebase Storage image
     try {
       // Create a reference to the file to delete
-      const imageRef = ref(storage, imageData.path);
+      const imageRef = storage.ref(imageData.path);
       
       // Delete the file from Storage
-      await deleteObject(imageRef);
+      await imageRef.delete();
       
       // Remove the image from the item document
-      const itemDocRef = doc(firestore, 'inventory', itemId);
-      await updateDoc(itemDocRef, {
-        images: arrayRemove(imageData)
+      const itemDocRef = firestore.collection('inventory').doc(itemId);
+      await itemDocRef.update({
+        images: firebase.firestore.FieldValue.arrayRemove(imageData)
       });
       
       return { success: true, id: itemId, path: imageData.path };
     } catch (storageError) {
       console.warn('Firebase Storage delete failed, using Firestore-only removal:', storageError);
       // If Firebase Storage delete fails, just remove from Firestore
-      const itemDocRef = doc(firestore, 'inventory', itemId);
-      await updateDoc(itemDocRef, {
-        images: arrayRemove(imageData)
+      const itemDocRef = firestore.collection('inventory').doc(itemId);
+      await itemDocRef.update({
+        images: firebase.firestore.FieldValue.arrayRemove(imageData)
       });
       
       return { success: true, id: itemId, path: imageData.path };
