@@ -1,12 +1,21 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '../stores/user'
+import { useAuth } from '../composables/useAuth'
+import { doc, getDoc } from 'firebase/firestore'
+import { firestore } from '../firebase/initFirebase'
 import MainLayout from '../layouts/MainLayout.vue'
+import UserInfoDisplay from '../components/UserInfoDisplay.vue'
 
 const userStore = useUserStore()
+const { currentUser } = useAuth()
 const loading = ref(false)
 const message = ref('')
 const error = ref('')
+const userMetadata = ref({
+  createdAt: null,
+  lastLogin: null
+})
 
 // User form data
 const userData = ref({
@@ -17,6 +26,17 @@ const userData = ref({
   confirmPassword: ''
 })
 
+// Computed properties for displaying user information
+const formattedCreatedAt = computed(() => {
+  if (!userMetadata.value.createdAt) return 'Unknown'
+  return new Date(userMetadata.value.createdAt).toLocaleString()
+})
+
+const formattedLastLogin = computed(() => {
+  if (!userMetadata.value.lastLogin) return 'Unknown'
+  return new Date(userMetadata.value.lastLogin).toLocaleString()
+})
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -24,7 +44,22 @@ onMounted(async () => {
     // Initialize form with current user data
     userData.value.displayName = userStore.userName || ''
     userData.value.email = userStore.userEmail || ''
+    
+    // Fetch additional user metadata from Firestore
+    if (currentUser.value?.uid) {
+      const userDocRef = doc(firestore, 'users', currentUser.value.uid)
+      const userDoc = await getDoc(userDocRef)
+      
+      if (userDoc.exists()) {
+        const data = userDoc.data()
+        userMetadata.value = {
+          createdAt: data.createdAt || currentUser.value.metadata?.creationTime,
+          lastLogin: data.lastLogin || currentUser.value.metadata?.lastSignInTime
+        }
+      }
+    }
   } catch (err) {
+    console.error('Failed to load user profile:', err)
     error.value = 'Failed to load user profile'
   } finally {
     loading.value = false
@@ -101,6 +136,9 @@ async function changePassword() {
       </div>
       
       <div v-else class="mt-6 max-w-2xl mx-auto">
+        <!-- User Account Information -->
+        <UserInfoDisplay class="mb-6" />
+        
         <!-- Success message -->
         <div v-if="message" class="mb-6 bg-green-50 border-l-4 border-green-400 p-4">
           <div class="flex">

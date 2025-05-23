@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { firestore } from '../firebase/initFirebase'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -21,11 +23,28 @@ async function handleLogin() {
   error.value = ''
 
   try {
-    await userStore.login(email.value, password.value)
+    // Login with Firebase
+    const userData = await userStore.login(email.value, password.value)
+    
+    // Update last login timestamp in Firestore
+    if (userData?.uid) {
+      try {
+        await setDoc(doc(firestore, 'users', userData.uid), {
+          lastLogin: serverTimestamp(),
+          email: userData.email,
+          // If this is a new user, set the creation timestamp
+          ...(userData.metadata?.creationTime && { createdAt: userData.metadata.creationTime })
+        }, { merge: true })
+      } catch (firestoreErr) {
+        console.error('Error updating user login data:', firestoreErr)
+        // Continue even if this fails - it's not critical
+      }
+    }
+    
     router.push('/')
   } catch (e) {
     console.error('Login error:', e)
-    error.value = e.response?.data?.message || 'Invalid email or password'
+    error.value = e.response?.data?.message || e.message || 'Invalid email or password'
   } finally {
     loading.value = false
   }
@@ -255,10 +274,10 @@ body {
 
 @keyframes move-forever {
   0% {
-    transform: translate3d(-90px,0,0);
+    transform: translate3d(-90px, 0, 0);
   }
-  100% { 
-    transform: translate3d(85px,0,0);
+  100% {
+    transform: translate3d(85px, 0, 0);
   }
 }
 </style> 

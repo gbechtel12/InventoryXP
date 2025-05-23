@@ -5,13 +5,15 @@ import { useInventoryStore } from '../stores/inventory'
 import { updateInventoryItem, calculateRoi } from '../services/inventoryService'
 import { useAuth } from '../composables/useAuth'
 import MainLayout from '../layouts/MainLayout.vue'
+import ImageGallery from '../components/ImageGallery.vue'
 
 const route = useRoute()
 const router = useRouter()
 const inventoryStore = useInventoryStore()
 const { currentUser } = useAuth()
 
-const itemId = parseInt(route.params.id)
+// Don't parseInt - keep the ID as a string for Firestore
+const itemId = route.params.id
 const loading = ref(true)
 const error = ref('')
 const editing = ref(false)
@@ -26,7 +28,10 @@ const editedItem = ref({
   location: '', 
   subLocation: '',
   subSubLocation: '',
-  listedOn: ''
+  listedOn: '',
+  // Image fields
+  images: [],
+  primaryImage: null
 })
 
 // Computed properties
@@ -53,6 +58,11 @@ async function loadData() {
   error.value = ''
   
   try {
+    if (!itemId) {
+      error.value = 'Invalid item ID'
+      return
+    }
+    
     await Promise.all([
       inventoryStore.fetchItemById(itemId),
       inventoryStore.fetchListingPlatforms()
@@ -80,7 +90,10 @@ function startEditing() {
     location: item.value.location || '',
     subLocation: item.value.subLocation || '',
     subSubLocation: item.value.subSubLocation || '',
-    listedOn: item.value.listedOn || ''
+    listedOn: item.value.listedOn || '',
+    // Image fields
+    images: item.value.images || [],
+    primaryImage: item.value.primaryImage || null
   }
   
   editing.value = true
@@ -117,7 +130,10 @@ async function saveChanges() {
       cost: Number(editedItem.value.cost),
       listPrice: Number(editedItem.value.listPrice),
       // Recalculate ROI
-      roi: calculateRoi(Number(editedItem.value.cost), Number(editedItem.value.listPrice))
+      roi: calculateRoi(Number(editedItem.value.cost), Number(editedItem.value.listPrice)),
+      // Make sure image fields are included
+      images: editedItem.value.images || [],
+      primaryImage: editedItem.value.primaryImage || null
     }
     
     // Update in Firestore
@@ -149,6 +165,30 @@ async function deleteItem() {
   } finally {
     showDeleteConfirm.value = false
     loading.value = false
+  }
+}
+
+// Image handling methods
+function handleImagesUpdate(images) {
+  if (editing.value) {
+    editedItem.value.images = images
+  }
+}
+
+function handlePrimaryImageUpdate(image) {
+  if (editing.value) {
+    editedItem.value.primaryImage = image
+  }
+}
+
+function handleImageUploadSuccess() {
+  // We could show a notification here
+}
+
+function handleImageUploadError(error) {
+  // Display error message
+  if (error) {
+    console.error('Image upload error:', error)
   }
 }
 </script>
@@ -213,6 +253,16 @@ async function deleteItem() {
             </div>
           </div>
           
+          <!-- Image Gallery -->
+          <div class="p-4 border-t border-gray-200">
+            <ImageGallery 
+              :itemId="itemId" 
+              :images="item.images || []" 
+              :primaryImage="item.primaryImage || null" 
+              :editable="false"
+            />
+          </div>
+          
           <div class="border-t border-gray-200">
             <dl>
               <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -263,6 +313,21 @@ async function deleteItem() {
         <div v-else class="bg-white shadow overflow-hidden sm:rounded-lg">
           <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
             <h1 class="text-2xl font-bold text-gray-900">Edit Item</h1>
+          </div>
+          
+          <!-- Image Gallery (Edit Mode) -->
+          <div class="p-4 border-t border-gray-200">
+            <h3 class="text-lg font-medium text-gray-700 mb-4">Item Images</h3>
+            <ImageGallery 
+              :itemId="itemId" 
+              :images="editedItem.images || []" 
+              :primaryImage="editedItem.primaryImage || null" 
+              :editable="true"
+              @update:images="handleImagesUpdate"
+              @update:primaryImage="handlePrimaryImageUpdate"
+              @upload-success="handleImageUploadSuccess"
+              @upload-error="handleImageUploadError"
+            />
           </div>
           
           <div class="border-t border-gray-200 px-4 py-5 sm:p-6">

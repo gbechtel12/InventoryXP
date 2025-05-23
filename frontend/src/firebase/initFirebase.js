@@ -2,13 +2,14 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Firebase configuration object using environment variables
 const firebaseConfig = {
     apiKey: "AIzaSyCkx2QZzJ67MwNT083VYQT6mzMznfxceQM",
     authDomain: "inventoryxp.firebaseapp.com",
     projectId: "inventoryxp",
-    storageBucket: "inventoryxp.firebasestorage.app",
+    storageBucket: "inventoryxp.appspot.com",
     messagingSenderId: "562286817001",
     appId: "1:562286817001:web:5974629c7fecf6da2f8a78",
     measurementId: "G-P35QFZ6LWM"
@@ -20,6 +21,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 const auth = getAuth(app);
 const firestore = getFirestore(app);
+const storage = getStorage(app);
 
 // Log initialization status in development mode
 if (import.meta.env.DEV) {
@@ -27,13 +29,13 @@ if (import.meta.env.DEV) {
 }
 
 // Export initialized Firebase instances
-export { app, auth, firestore };
+export { app, auth, firestore, storage };
 
 /**
- * This module initializes Firebase and exports the app, auth, and firestore instances.
+ * This module initializes Firebase and exports the app, auth, firestore, and storage instances.
  * To use in other files, import like this:
  * 
- * import { auth, firestore } from '@/firebase/initFirebase';
+ * import { auth, firestore, storage } from '@/firebase/initFirebase';
  * 
  * Environment variables required in .env file:
  * VITE_FIREBASE_API_KEY

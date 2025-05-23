@@ -2,13 +2,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { useAuth } from '../composables/useAuth'
 
 const router = useRouter()
 const userStore = useUserStore()
+const { currentUser } = useAuth()
 const mobileMenuOpen = ref(false)
+const userMenuOpen = ref(false)
 
 const isAuthenticated = computed(() => userStore.isAuthenticated)
 const userName = computed(() => userStore.userName || 'User')
+const userEmail = computed(() => userStore.userEmail || '')
+const userInitial = computed(() => (userName.value.charAt(0) || 'U').toUpperCase())
 
 function logout() {
   userStore.logout()
@@ -17,12 +22,27 @@ function logout() {
 
 function toggleMobileMenu() {
   mobileMenuOpen.value = !mobileMenuOpen.value
+  if (mobileMenuOpen.value) {
+    userMenuOpen.value = false
+  }
 }
 
-// Close mobile menu when changing routes
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value
+}
+
+// Close menus when changing routes
 onMounted(() => {
   router.afterEach(() => {
     mobileMenuOpen.value = false
+    userMenuOpen.value = false
+  })
+  
+  // Close user menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (userMenuOpen.value && !e.target.closest('.user-menu-container')) {
+      userMenuOpen.value = false
+    }
   })
 })
 </script>
@@ -61,7 +81,7 @@ onMounted(() => {
         
         <!-- User menu and logout for desktop -->
         <div class="hidden md:flex md:items-center">
-          <div v-if="isAuthenticated" class="flex items-center">
+          <div v-if="isAuthenticated" class="flex items-center relative user-menu-container">
             <router-link 
               to="/settings" 
               class="text-white hover:text-indigo-100 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out mr-2"
@@ -69,12 +89,39 @@ onMounted(() => {
             >
               Settings
             </router-link>
-            <div class="text-white mr-4 flex items-center">
-              <span class="h-8 w-8 rounded-full bg-indigo-400 flex items-center justify-center mr-2">
-                {{ userName.charAt(0).toUpperCase() }}
-              </span>
-              <span class="text-sm font-medium">{{ userName }}</span>
+            
+            <div 
+              @click="toggleUserMenu"
+              class="text-white mr-4 flex items-center cursor-pointer px-3 py-2 rounded-md hover:bg-indigo-700"
+            >
+              <div class="h-8 w-8 rounded-full bg-indigo-400 flex items-center justify-center mr-2 text-white font-medium">
+                {{ userInitial }}
+              </div>
+              <div class="flex flex-col">
+                <span class="text-sm font-medium">{{ userName }}</span>
+                <span class="text-xs text-indigo-200">{{ userEmail }}</span>
+              </div>
             </div>
+            
+            <!-- User dropdown menu -->
+            <div 
+              v-if="userMenuOpen"
+              class="absolute right-0 top-16 w-48 bg-white rounded-md shadow-lg z-10 py-1"
+            >
+              <router-link 
+                to="/settings" 
+                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Profile Settings
+              </router-link>
+              <button 
+                @click="logout" 
+                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Sign out
+              </button>
+            </div>
+            
             <button 
               @click="logout" 
               class="px-3 py-2 rounded text-sm font-medium text-white bg-indigo-700 hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
@@ -175,11 +222,12 @@ onMounted(() => {
         <div v-if="isAuthenticated" class="flex items-center px-5">
           <div class="flex-shrink-0">
             <div class="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium">
-              {{ userName.charAt(0).toUpperCase() }}
+              {{ userInitial }}
             </div>
           </div>
           <div class="ml-3">
             <div class="text-base font-medium text-white">{{ userName }}</div>
+            <div class="text-sm font-medium text-indigo-200">{{ userEmail }}</div>
           </div>
           <button 
             @click="logout"

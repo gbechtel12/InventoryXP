@@ -65,6 +65,9 @@ export const addInventoryItem = async (item, userId) => {
       cost: Number(itemWithMeta.cost) || 0,
       listPrice: Number(itemWithMeta.listPrice) || 0,
       roi: Number(itemWithMeta.roi) || 0,
+      // Image related fields
+      images: itemWithMeta.images || [],
+      primaryImage: itemWithMeta.primaryImage || null,
       createdBy: itemWithMeta.createdBy,
       createdAt: itemWithMeta.createdAt,
       updatedAt: itemWithMeta.updatedAt

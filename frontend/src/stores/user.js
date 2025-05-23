@@ -1,17 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
-import { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, useMockAuth } from '../services/firebase'
-import { firestore } from '@/firebase/initFirebase'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { auth, firestore } from '../firebase/initFirebase'
 
-const API_URL = import.meta.env.VITE_API_URL || '/api'
-
-// Development flag to bypass API calls when backend is not available
-const MOCK_AUTH = true // Set to true to enable mock authentication without backend
-
-// Default mock user credentials
-const MOCK_EMAIL = 'test@example.com'
-const MOCK_PASSWORD = 'password123'
+// Temporarily enable mock auth to allow login while fixing Firebase configuration
+const MOCK_AUTH = true;
 
 export const useUserStore = defineStore('user', () => {
   const user = ref(null)
@@ -19,10 +14,22 @@ export const useUserStore = defineStore('user', () => {
   const isLoading = ref(false)
   const authError = ref(null)
 
-  // Store mock credentials in localStorage for persistence
-  if (MOCK_AUTH && !localStorage.getItem('mockEmail')) {
-    localStorage.setItem('mockEmail', MOCK_EMAIL)
-    localStorage.setItem('mockPassword', MOCK_PASSWORD)
+  // Create a mock user for development
+  if (MOCK_AUTH) {
+    user.value = {
+      uid: 'mock-user-1',
+      email: 'test@example.com',
+      displayName: 'Test User'
+    }
+    
+    // Set a mock token
+    if (!token.value) {
+      const mockToken = 'mock-token-' + user.value.uid
+      token.value = mockToken
+      localStorage.setItem('token', mockToken)
+    }
+    
+    console.log('Using mock user in userStore:', user.value.email)
   }
 
   const isAuthenticated = computed(() => !!user.value)
@@ -30,11 +37,11 @@ export const useUserStore = defineStore('user', () => {
   const userEmail = computed(() => user.value?.email || '')
 
   // Initialize auth state from Firebase on store creation
-  onAuthStateChanged(auth, (firebaseUser) => {
-    if (firebaseUser) {
-      user.value = firebaseUser
-      // Get the ID token for API requests
-      if (typeof firebaseUser.getIdToken === 'function') {
+  if (!MOCK_AUTH) {
+    onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        user.value = firebaseUser
+        // Get the ID token for API requests
         firebaseUser.getIdToken().then((idToken) => {
           token.value = idToken
           localStorage.setItem('token', idToken)
@@ -42,23 +49,22 @@ export const useUserStore = defineStore('user', () => {
         }).catch(error => {
           console.error('Error getting ID token:', error)
         })
-      } else if (useMockAuth) {
-        // Using mock auth, just use the UID as the token
-        const mockToken = 'mock-token-' + firebaseUser.uid
-        token.value = mockToken
-        localStorage.setItem('token', mockToken)
-        axios.defaults.headers.common['Authorization'] = `Bearer ${mockToken}`
+      } else {
+        user.value = null
+        token.value = null
+        localStorage.removeItem('token')
+        delete axios.defaults.headers.common['Authorization']
       }
-    } else {
-      user.value = null
-      token.value = null
-      localStorage.removeItem('token')
-      delete axios.defaults.headers.common['Authorization']
+    })
+  } else {
+    // For mock auth, set the Authorization header
+    if (token.value) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`
     }
-  })
+  }
 
   // Load user profile if token exists
-  if (token.value && !user.value) {
+  if (token.value && !user.value && !MOCK_AUTH) {
     loadUserProfile()
   }
 
@@ -68,27 +74,34 @@ export const useUserStore = defineStore('user', () => {
     try {
       isLoading.value = true
       
+      // For mock auth, return the mock user
       if (MOCK_AUTH) {
-        // Mock user profile data for development
-        user.value = {
-          id: 1,
-          username: 'testuser',
-          email: localStorage.getItem('mockEmail') || MOCK_EMAIL,
-          name: 'Test User',
-          // Include password in development only - would never do this in production
-          password: localStorage.getItem('mockPassword') || MOCK_PASSWORD
-        }
         return user.value
       }
       
-      const response = await axios.get(`${API_URL}/auth/profile`)
-      user.value = response.data
+      // If we have a current user, just return it
+      if (auth.currentUser) {
+        user.value = auth.currentUser
+        return user.value
+      }
+      
+      // Otherwise try to get user data from Firestore
+      if (user.value?.uid) {
+        const userDocRef = doc(firestore, 'users', user.value.uid)
+        const userDoc = await getDoc(userDocRef)
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          // Merge Firestore data with auth user data
+          if (user.value) {
+            user.value = { ...user.value, ...userData }
+          }
+        }
+      }
+      
       return user.value
     } catch (error) {
       console.error('Failed to load user profile:', error)
-      if (!MOCK_AUTH) {
-        await logout()
-      }
       return null
     } finally {
       isLoading.value = false
@@ -100,42 +113,45 @@ export const useUserStore = defineStore('user', () => {
       isLoading.value = true
       authError.value = null
       
-      console.log('Login attempt with:', { email, password });
-      
-      // For mock auth, ensure we have valid values
-      if (MOCK_AUTH) {
-        const mockEmail = localStorage.getItem('mockEmail') || MOCK_EMAIL
-        const mockPassword = localStorage.getItem('mockPassword') || MOCK_PASSWORD
-        
-        // In development, use valid credentials if empty
-        if (!email) email = mockEmail;
-        if (!password) password = mockPassword;
+      // Validate inputs
+      if (!email || !password) {
+        throw new Error('Email and password are required')
       }
       
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password)
-        user.value = userCredential.user
+      // Use mock authentication if enabled
+      if (MOCK_AUTH) {
+        console.log('Using mock authentication for login')
         
-        // Get token for API requests if using real Firebase
-        if (!useMockAuth && typeof userCredential.user.getIdToken === 'function') {
-          const idToken = await userCredential.user.getIdToken()
-          token.value = idToken
-          localStorage.setItem('token', idToken)
-          axios.defaults.headers.common['Authorization'] = `Bearer ${idToken}`
-        } else if (useMockAuth) {
-          // Using mock auth
-          const mockToken = 'mock-token-' + userCredential.user.uid
-          token.value = mockToken
-          localStorage.setItem('token', mockToken)
-          axios.defaults.headers.common['Authorization'] = `Bearer ${mockToken}`
+        // Set mock user and token
+        user.value = {
+          uid: 'mock-user-1',
+          email: email || 'test@example.com',
+          displayName: email?.split('@')[0] || 'Test User',
+          metadata: {
+            creationTime: new Date().toISOString(),
+            lastSignInTime: new Date().toISOString()
+          }
         }
         
-        await loadUserProfile()
-        return true
-      } catch (error) {
-        console.error('Firebase login error:', error)
-        throw error
+        const mockToken = 'mock-token-' + user.value.uid
+        token.value = mockToken
+        localStorage.setItem('token', mockToken)
+        axios.defaults.headers.common['Authorization'] = `Bearer ${mockToken}`
+        
+        return user.value
       }
+      
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      user.value = userCredential.user
+      
+      // Get token for API requests
+      const idToken = await userCredential.user.getIdToken()
+      token.value = idToken
+      localStorage.setItem('token', idToken)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${idToken}`
+      
+      await loadUserProfile()
+      return user.value
     } catch (error) {
       console.error('Login error:', error)
       authError.value = error.message || 'Failed to login'
@@ -150,37 +166,67 @@ export const useUserStore = defineStore('user', () => {
       isLoading.value = true
       authError.value = null
       
-      const { email, password, name } = userData
+      const { email, password, username } = userData
       
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      user.value = userCredential.user
-      
-      // Update profile if name is provided
-      if (name) {
-        if (auth.currentUser && typeof auth.currentUser.updateProfile === 'function') {
-          await auth.currentUser.updateProfile({ displayName: name })
-        } else if (useMockAuth) {
-          // Using mock auth
-          await auth.updateProfile({ displayName: name })
-        }
+      // Validate inputs
+      if (!email || !password) {
+        throw new Error('Email and password are required')
       }
       
-      // Get token for API requests if using real Firebase
-      if (!useMockAuth && typeof userCredential.user.getIdToken === 'function') {
-        const idToken = await userCredential.user.getIdToken()
-        token.value = idToken
-        localStorage.setItem('token', idToken)
-        axios.defaults.headers.common['Authorization'] = `Bearer ${idToken}`
-      } else if (useMockAuth) {
-        // Using mock auth
-        const mockToken = 'mock-token-' + userCredential.user.uid
+      if (MOCK_AUTH) {
+        console.log('Using mock authentication for registration')
+        
+        // Set mock user and token
+        user.value = {
+          uid: 'mock-user-' + Math.floor(Math.random() * 10000),
+          email: email,
+          displayName: username || email.split('@')[0],
+          metadata: {
+            creationTime: new Date().toISOString(),
+            lastSignInTime: new Date().toISOString()
+          }
+        }
+        
+        const mockToken = 'mock-token-' + user.value.uid
         token.value = mockToken
         localStorage.setItem('token', mockToken)
         axios.defaults.headers.common['Authorization'] = `Bearer ${mockToken}`
+        
+        // Add a slight delay to simulate network latency
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        return user.value
       }
       
+      // Create new user with Firebase
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      user.value = userCredential.user
+      
+      // Update profile with username/displayName
+      if (username && auth.currentUser) {
+        await auth.currentUser.updateProfile({ displayName: username })
+      }
+      
+      // Get token for API requests
+      const idToken = await userCredential.user.getIdToken()
+      token.value = idToken
+      localStorage.setItem('token', idToken)
+      axios.defaults.headers.common['Authorization'] = `Bearer ${idToken}`
+      
+      // Save additional user data to Firestore
+      const userDocRef = doc(firestore, 'users', userCredential.user.uid)
+      await setDoc(userDocRef, {
+        uid: userCredential.user.uid,
+        email: email,
+        displayName: username || email.split('@')[0],
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString()
+      })
+      
+      // Make sure to load the user profile with the new data
       await loadUserProfile()
-      return true
+      
+      return user.value
     } catch (error) {
       console.error('Registration error:', error)
       authError.value = error.message || 'Failed to register'
@@ -209,16 +255,22 @@ export const useUserStore = defineStore('user', () => {
     try {
       isLoading.value = true
       
-      if (auth.currentUser) {
-        if (typeof auth.currentUser.updateProfile === 'function') {
-          await auth.currentUser.updateProfile(userData)
-          user.value = auth.currentUser
-        } else if (useMockAuth) {
-          // Using mock auth
-          await auth.updateProfile(userData)
-          user.value = auth.currentUser
-        }
+      if (!auth.currentUser) {
+        throw new Error('User not authenticated')
       }
+      
+      // Update Firebase Auth profile (displayName, etc.)
+      await auth.currentUser.updateProfile(userData)
+      
+      // Also update Firestore user document
+      const userDocRef = doc(firestore, 'users', auth.currentUser.uid)
+      await updateDoc(userDocRef, {
+        ...userData,
+        updatedAt: new Date().toISOString()
+      })
+      
+      // Update local user object
+      user.value = auth.currentUser
       
       return user.value
     } catch (error) {
@@ -233,18 +285,12 @@ export const useUserStore = defineStore('user', () => {
     try {
       isLoading.value = true
       
-      if (auth.currentUser) {
-        if (typeof auth.currentUser.updatePassword === 'function') {
-          await auth.currentUser.updatePassword(newPassword)
-          return true
-        } else if (useMockAuth) {
-          // Using mock auth
-          await auth.updatePassword(newPassword)
-          return true
-        }
+      if (!auth.currentUser) {
+        throw new Error('User not authenticated')
       }
       
-      return false
+      await auth.currentUser.updatePassword(newPassword)
+      return true
     } catch (error) {
       console.error('Change password error:', error)
       throw error
@@ -266,9 +312,6 @@ export const useUserStore = defineStore('user', () => {
     logout,
     loadUserProfile,
     updateProfile,
-    changePassword,
-    // Export mock credentials for easier testing
-    MOCK_EMAIL,
-    MOCK_PASSWORD
+    changePassword
   }
 }) 

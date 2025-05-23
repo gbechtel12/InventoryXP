@@ -10,8 +10,10 @@ const props = defineProps({
 })
 
 const roi = computed(() => {
-  if (props.item.cost <= 0) return 0
-  return calculateRoi(props.item.cost, props.item.listPrice)
+  const cost = props.item.cost || 0
+  const listPrice = props.item.listPrice || 0
+  if (cost <= 0) return 0
+  return calculateRoi(cost, listPrice)
 })
 
 const roiClass = computed(() => {
@@ -21,10 +23,43 @@ const roiClass = computed(() => {
   if (roiValue >= 0) return 'text-yellow-500'
   return 'text-red-500'
 })
+
+const itemId = computed(() => {
+  return props.item.id || props.item.itemID || ''
+})
+
+const hasImage = computed(() => {
+  return props.item.primaryImage?.url || 
+    (props.item.images && props.item.images.length > 0 && props.item.images[0].url)
+})
+
+const imageUrl = computed(() => {
+  if (props.item.primaryImage?.url) {
+    return props.item.primaryImage.url
+  } else if (props.item.images && props.item.images.length > 0) {
+    return props.item.images[0].url
+  }
+  return null
+})
 </script>
 
 <template>
   <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-300">
+    <!-- Item image -->
+    <div class="h-48 overflow-hidden relative">
+      <img 
+        v-if="hasImage" 
+        :src="imageUrl" 
+        alt="Item thumbnail" 
+        class="w-full h-full object-cover" 
+      />
+      <div v-else class="w-full h-full bg-gray-100 flex items-center justify-center">
+        <svg class="w-12 h-12 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+        </svg>
+      </div>
+    </div>
+    
     <div class="px-4 py-5 sm:p-6">
       <div class="flex justify-between items-start">
         <div>
@@ -57,13 +92,13 @@ const roiClass = computed(() => {
           </div>
         </div>
         <div class="text-right">
-          <div class="text-lg font-medium text-gray-900">${{ item.listPrice.toFixed(2) }}</div>
-          <div class="text-sm text-gray-500">Cost: ${{ item.cost.toFixed(2) }}</div>
+          <div class="text-lg font-medium text-gray-900">${{ (item.listPrice || 0).toFixed(2) }}</div>
+          <div class="text-sm text-gray-500">Cost: ${{ (item.cost || 0).toFixed(2) }}</div>
         </div>
       </div>
       
       <div class="mt-4 flex justify-end space-x-2">
-        <router-link :to="`/inventory/${item.id || item.itemID}`" 
+        <router-link :to="`/inventory/${itemId}`" 
           class="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
           View
         </router-link>

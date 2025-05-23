@@ -44,10 +44,18 @@ function calculateStats() {
   }
   
   const totalItems = items.length
-  const totalValue = items.reduce((sum, item) => sum + item.listingPrice, 0)
+  const totalValue = items.reduce((sum, item) => {
+    // Use listPrice instead of listingPrice and handle undefined values
+    const price = item.listPrice || 0
+    return sum + price
+  }, 0)
+  
   const totalROI = items.reduce((sum, item) => {
-    // Calculate ROI as percentage: (listingPrice - cost) / cost * 100
-    const roi = item.cost > 0 ? ((item.listingPrice - item.cost) / item.cost) * 100 : 0
+    // Ensure we have valid cost and listPrice values
+    const cost = item.cost || 0
+    const price = item.listPrice || 0
+    // Calculate ROI as percentage: (listPrice - cost) / cost * 100
+    const roi = cost > 0 ? ((price - cost) / cost) * 100 : 0
     return sum + roi
   }, 0)
   
@@ -149,11 +157,11 @@ function calculateStats() {
                 <div class="flex items-center justify-between">
                   <div>
                     <h4 class="text-sm font-medium text-indigo-600">{{ item.title }}</h4>
-                    <p class="text-xs text-gray-500">Location: {{ item.mainLocation }} {{ item.subLocation ? '/ ' + item.subLocation : '' }}</p>
+                    <p class="text-xs text-gray-500">Location: {{ item.location || '' }} {{ item.subLocation ? '/ ' + item.subLocation : '' }}</p>
                   </div>
                   <div class="text-right">
-                    <p class="text-sm font-medium text-gray-900">${{ item.listingPrice.toFixed(2) }}</p>
-                    <p class="text-xs text-gray-500">Cost: ${{ item.cost.toFixed(2) }}</p>
+                    <p class="text-sm font-medium text-gray-900">${{ (item.listPrice || 0).toFixed(2) }}</p>
+                    <p class="text-xs text-gray-500">Cost: ${{ (item.cost || 0).toFixed(2) }}</p>
                   </div>
                 </div>
               </div>

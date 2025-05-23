@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { firestore } from '../firebase/initFirebase'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -36,20 +38,43 @@ async function handleRegister() {
   loading.value = true
   
   try {
-    const success = await userStore.register({
+    // Register user
+    const userData = await userStore.register({
       username: username.value,
       email: email.value,
-      password: password.value,
-      confirmPassword: confirmPassword.value
+      password: password.value
     })
     
-    if (success) {
-      router.push({ name: 'home' })
+    if (userData && userData.uid) {
+      // Update last login timestamp in Firestore
+      try {
+        await setDoc(doc(firestore, 'users', userData.uid), {
+          lastLogin: serverTimestamp(),
+          registrationComplete: true
+        }, { merge: true })
+      } catch (firestoreErr) {
+        console.error('Error updating registration data:', firestoreErr)
+        // Continue even if this fails - it's not critical
+      }
+      
+      // Redirect to dashboard
+      router.push('/')
     } else {
-      error.value = 'Registration failed. This email may already be registered.'
+      error.value = 'Registration failed. Please try again.'
     }
   } catch (e) {
-    error.value = e.message || 'An error occurred during registration'
+    console.error('Registration error:', e)
+    
+    // Provide user-friendly error messages
+    if (e.code === 'auth/email-already-in-use') {
+      error.value = 'An account with this email already exists.'
+    } else if (e.code === 'auth/invalid-email') {
+      error.value = 'Invalid email format.'
+    } else if (e.code === 'auth/weak-password') {
+      error.value = 'Password is too weak. Use at least 6 characters.'
+    } else {
+      error.value = e.message || 'An error occurred during registration'
+    }
   } finally {
     loading.value = false
   }
