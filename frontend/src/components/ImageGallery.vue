@@ -29,6 +29,7 @@ const imageFileInput = ref(null)
 const isUploading = ref(false)
 const uploadProgress = ref(0)
 const error = ref('')
+const sizeAlert = ref({ show: false, fileName: '', fileSize: 0 })
 
 // Computed values
 const sortedImages = computed(() => {
@@ -63,6 +64,7 @@ async function handleFileUpload(event) {
   if (!files || files.length === 0) return
   
   error.value = ''
+  sizeAlert.value = { show: false, fileName: '', fileSize: 0 }
   isUploading.value = true
   uploadProgress.value = 0
   
@@ -79,7 +81,13 @@ async function handleFileUpload(event) {
       
       // Check file size (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        error.value = 'Image size must be less than 5MB'
+        error.value = `Image "${file.name}" exceeds the 5MB limit. Please resize the image and try again.`
+        // Show the dedicated size alert
+        sizeAlert.value = { 
+          show: true, 
+          fileName: file.name, 
+          fileSize: (file.size / (1024 * 1024)).toFixed(2) 
+        }
         continue
       }
       
@@ -155,8 +163,41 @@ async function handleSetPrimary(image) {
 <template>
   <div class="image-gallery">
     <!-- Error display -->
-    <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-      {{ error }}
+    <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <span>{{ error }}</span>
+    </div>
+    
+    <!-- Image Size Alert -->
+    <div v-if="sizeAlert.show" class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 rounded shadow-sm">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-amber-800">Image Size Limit Exceeded</h3>
+          <div class="mt-2 text-sm text-amber-700">
+            <p>
+              The image <span class="font-semibold">{{ sizeAlert.fileName }}</span> is {{ sizeAlert.fileSize }}MB, which exceeds the 5MB limit.
+            </p>
+            <p class="mt-1">
+              Please resize the image before uploading. You can use an online image compressor or image editing software.
+            </p>
+          </div>
+          <div class="mt-3">
+            <button
+              @click="sizeAlert.show = false"
+              class="text-sm text-amber-800 font-medium hover:text-amber-600 focus:outline-none"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- Main image display -->
@@ -253,9 +294,17 @@ async function handleSetPrimary(image) {
         {{ isUploading ? 'Uploading...' : 'Upload Images' }}
       </button>
       
-      <p class="mt-2 text-xs text-gray-500">
-        Upload up to 10 images (max 5MB each). Supported formats: JPG, PNG, GIF.
-      </p>
+      <div class="mt-2 text-xs">
+        <p class="text-gray-500">
+          Upload up to 10 images. Supported formats: JPG, PNG, GIF.
+        </p>
+        <p class="font-medium text-amber-600">
+          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Images must be less than 5MB each
+        </p>
+      </div>
     </div>
   </div>
 </template>
