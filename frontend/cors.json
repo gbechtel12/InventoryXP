@@ -1,0 +1,8 @@
+[
+    {
+      "origin": ["https://inventory-xp.vercel.app", "http://localhost:3000"],
+      "method": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+      "maxAgeSeconds": 3600,
+      "responseHeader": ["Content-Type", "Content-Disposition", "Content-Length"]
+    }
+  ]

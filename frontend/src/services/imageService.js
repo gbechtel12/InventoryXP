@@ -1,103 +1,74 @@
 // Firebase v8 doesn't use these named imports - functionality is available on the service instances
 import firebase from 'firebase/app';
-import { storage, firestore } from '../firebase/initFirebase';
+import { firestore } from '../firebase/initFirebase';
 import { 
   uploadItemImageFallback, 
   removeItemImageFallback, 
   setPrimaryImageFallback 
 } from './imageServiceFallback';
 
+// Static placeholder images for development/testing
+const PLACEHOLDER_IMAGES = [
+  'https://placehold.co/800x800?text=Placeholder+Image',
+  'https://placehold.co/800x800/e6f7ff/333333?text=No+Storage',
+  'https://placehold.co/800x800/fff3e0/333333?text=Sample+Item'
+];
+
 /**
- * Uploads an image file to Firebase Storage and adds its URL to the item document
- * Falls back to local storage method if Firebase Storage fails
+ * Uploads an image file to Firestore as base64 data URL
+ * Firebase Storage has been removed to avoid CORS issues
  * @param {File} file - The image file to upload
  * @param {string} itemId - The ID of the inventory item
  * @param {string} userId - The ID of the user uploading the image
- * @returns {Promise<Object>} - Object containing the download URL and metadata
+ * @returns {Promise<Object>} - Object containing the image data
  */
 export const uploadItemImage = async (file, itemId, userId) => {
   try {
-    // Create a unique filename using timestamp and original file name
-    const timestamp = new Date().getTime();
-    const fileName = `${timestamp}_${file.name}`;
-    
-    // Create a storage reference for this specific file
-    const storageRef = storage.ref(`inventory/${userId}/${itemId}/${fileName}`);
-    
-    // Try direct upload to Firebase Storage
-    try {
-      // Upload the file
-      const snapshot = await storageRef.put(file);
-      
-      // Get the download URL
-      const downloadURL = await snapshot.ref.getDownloadURL();
-      
-      // Create image metadata object
-      const imageData = {
-        url: downloadURL,
-        fileName: fileName,
-        path: snapshot.ref.fullPath,
-        contentType: file.type,
-        uploadedAt: timestamp,
-        size: file.size
-      };
-      
-      // Update the item document in Firestore to add this image URL to the images array
-      const itemDocRef = firestore.collection('inventory').doc(itemId);
-      await itemDocRef.update({
-        images: firebase.firestore.FieldValue.arrayUnion(imageData)
-      });
-      
-      return imageData;
-    } catch (storageError) {
-      console.warn('Firebase Storage upload failed, falling back to local method:', storageError);
-      // If Firebase Storage upload fails (e.g., CORS issues), use the fallback method
-      return uploadItemImageFallback(file, itemId, userId);
-    }
+    console.log('Using fallback image upload method (Firebase Storage disabled)');
+    // Always use the fallback method since Firebase Storage has been removed
+    return uploadItemImageFallback(file, itemId, userId);
   } catch (error) {
     console.error('Error uploading image:', error);
-    throw error;
+    
+    // If all else fails, use a placeholder image
+    const timestamp = new Date().getTime();
+    const randomIndex = Math.floor(Math.random() * PLACEHOLDER_IMAGES.length);
+    
+    const placeholderImage = {
+      url: PLACEHOLDER_IMAGES[randomIndex],
+      fileName: `placeholder-${timestamp}.jpg`,
+      path: `placeholder/${timestamp}`,
+      contentType: 'image/jpeg',
+      uploadedAt: timestamp,
+      size: 0,
+      isPlaceholder: true,
+      isLocalFallback: true
+    };
+    
+    // Add the placeholder to Firestore
+    try {
+      const itemDocRef = firestore.collection('inventory').doc(itemId);
+      await itemDocRef.update({
+        images: firebase.firestore.FieldValue.arrayUnion(placeholderImage)
+      });
+    } catch (firestoreError) {
+      console.error('Failed to add placeholder image to Firestore:', firestoreError);
+    }
+    
+    return placeholderImage;
   }
 };
 
 /**
- * Removes an image from Firebase Storage and the item document
- * @param {Object} imageData - The image data object with url and path
+ * Removes an image from the item document
+ * @param {Object} imageData - The image data object
  * @param {string} itemId - The ID of the inventory item
  * @returns {Promise<void>}
  */
 export const removeItemImage = async (imageData, itemId) => {
   try {
-    // Check if this is a fallback image
-    if (imageData.isLocalFallback) {
-      return removeItemImageFallback(imageData, itemId);
-    }
-    
-    // Regular Firebase Storage image
-    try {
-      // Create a reference to the file to delete
-      const imageRef = storage.ref(imageData.path);
-      
-      // Delete the file from Storage
-      await imageRef.delete();
-      
-      // Remove the image from the item document
-      const itemDocRef = firestore.collection('inventory').doc(itemId);
-      await itemDocRef.update({
-        images: firebase.firestore.FieldValue.arrayRemove(imageData)
-      });
-      
-      return { success: true, id: itemId, path: imageData.path };
-    } catch (storageError) {
-      console.warn('Firebase Storage delete failed, using Firestore-only removal:', storageError);
-      // If Firebase Storage delete fails, just remove from Firestore
-      const itemDocRef = firestore.collection('inventory').doc(itemId);
-      await itemDocRef.update({
-        images: firebase.firestore.FieldValue.arrayRemove(imageData)
-      });
-      
-      return { success: true, id: itemId, path: imageData.path };
-    }
+    // All images are now treated as fallback images
+    return removeItemImageFallback(imageData, itemId);
   } catch (error) {
     console.error('Error removing image:', error);
     throw error;
@@ -112,7 +83,6 @@ export const removeItemImage = async (imageData, itemId) => {
  */
 export const setPrimaryImage = async (itemId, imageData) => {
   try {
-    // The setPrimaryImage operation is the same for both regular and fallback images
     return setPrimaryImageFallback(itemId, imageData);
   } catch (error) {
     console.error('Error setting primary image:', error);

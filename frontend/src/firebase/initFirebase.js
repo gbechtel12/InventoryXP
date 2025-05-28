@@ -2,7 +2,6 @@
 import firebase from 'firebase/app';
 import 'firebase/auth';
 import 'firebase/firestore';
-import 'firebase/storage';
 
 // Firebase configuration object using environment variables
 const firebaseConfig = {
@@ -21,7 +20,6 @@ const app = firebase.initializeApp(firebaseConfig);
 // Initialize Firebase services
 const auth = firebase.auth();
 const firestore = firebase.firestore();
-const storage = firebase.storage();
 
 // Log initialization status in development mode
 if (import.meta.env.DEV) {
@@ -29,13 +27,13 @@ if (import.meta.env.DEV) {
 }
 
 // Export initialized Firebase instances
-export { app, auth, firestore, storage };
+export { app, auth, firestore };
 
 /**
- * This module initializes Firebase and exports the app, auth, firestore, and storage instances.
+ * This module initializes Firebase and exports the app, auth, and firestore instances.
  * To use in other files, import like this:
  * 
- * import { auth, firestore, storage } from '@/firebase/initFirebase';
+ * import { auth, firestore } from '@/firebase/initFirebase';
  * 
  * Environment variables required in .env file:
  * VITE_FIREBASE_API_KEY
