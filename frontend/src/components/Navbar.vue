@@ -76,6 +76,14 @@ onMounted(() => {
             >
               Inventory
             </router-link>
+            
+            <router-link 
+              to="/about" 
+              class="text-white hover:text-indigo-100 px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out"
+              active-class="bg-indigo-700 text-white"
+            >
+              About
+            </router-link>
           </div>
         </div>
         
@@ -213,6 +221,14 @@ onMounted(() => {
             active-class="bg-indigo-800 text-white"
           >
             Settings
+          </router-link>
+          
+          <router-link 
+            to="/about" 
+            class="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-indigo-600"
+            active-class="bg-indigo-800 text-white"
+          >
+            About
           </router-link>
         </template>
       </div>
